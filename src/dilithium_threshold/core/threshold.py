@@ -8,11 +8,12 @@ to enable threshold signatures without intermediate secret reconstruction.
 
 import hashlib
 import secrets
+import numpy as np
 from typing import List, Tuple, Optional, Dict
 from ..crypto.polynomials import Polynomial, PolynomialVector
 from .dilithium import Dilithium, DilithiumPublicKey, DilithiumSignature
 from .shamir import AdaptedShamirSSS, ShamirShare
-from ..utils.constants import validate_threshold_config, DEFAULT_SECURITY_LEVEL
+from ..utils.constants import validate_threshold_config, DEFAULT_SECURITY_LEVEL, Q, N
 
 
 class ThresholdKeyShare:
@@ -369,9 +370,9 @@ class ThresholdSignature:
         
         for poly_idx in range(vector_length):
             # Reconstruct each coefficient of this polynomial
-            coeffs = np.zeros(256, dtype=np.int32)  # N = 256
+            coeffs = np.zeros(N, dtype=np.int32)
             
-            for coeff_idx in range(256):
+            for coeff_idx in range(N):
                 # Collect points for Lagrange interpolation
                 points = []
                 for ps in partial_signatures:
@@ -381,7 +382,7 @@ class ThresholdSignature:
                 
                 # Perform Lagrange interpolation
                 reconstructed_coeff = self._lagrange_interpolation(points, 0)
-                coeffs[coeff_idx] = reconstructed_coeff % self.dilithium.params['q']
+                coeffs[coeff_idx] = reconstructed_coeff % Q
             
             reconstructed_polys.append(Polynomial(coeffs))
         
@@ -440,7 +441,8 @@ class ThresholdSignature:
             denominator_inv = pow(denominator, Q - 2, Q)  # Fermat's little theorem
             
             # Add contribution
-            contribution = (yi * numerator * denominator_inv) % Q
+            # Use int64 to prevent overflow
+            contribution = (int(yi) * int(numerator) * int(denominator_inv)) % Q
             result = (result + contribution) % Q
         
         return result

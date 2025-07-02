@@ -77,7 +77,9 @@ class Polynomial:
     def __mul__(self, other: Union['Polynomial', int]) -> 'Polynomial':
         """Multiply polynomial by another polynomial or scalar."""
         if isinstance(other, int):
-            return Polynomial((self.coeffs * other) % Q)
+            # Convert to int64 to prevent overflow
+            result_coeffs = self.coeffs.astype(np.int64) * other
+            return Polynomial(result_coeffs % Q)
         elif isinstance(other, Polynomial):
             return self._poly_multiply(other)
         else:
@@ -108,9 +110,13 @@ class Polynomial:
         """
         result_coeffs = np.zeros(2 * N - 1, dtype=np.int64)
         
+        # Convert to int64 to prevent overflow during multiplication
+        self_coeffs = self.coeffs.astype(np.int64)
+        other_coeffs = other.coeffs.astype(np.int64)
+        
         for i in range(N):
             for j in range(N):
-                result_coeffs[i + j] += self.coeffs[i] * other.coeffs[j]
+                result_coeffs[i + j] += self_coeffs[i] * other_coeffs[j]
         
         return Polynomial(result_coeffs % Q)
     
@@ -242,8 +248,14 @@ class PolynomialVector:
     
     def __eq__(self, other: 'PolynomialVector') -> bool:
         """Check equality of vectors."""
+        if not isinstance(other, PolynomialVector):
+            return False
         return (self.length == other.length and 
                 all(p1 == p2 for p1, p2 in zip(self.polys, other.polys)))
+    
+    def __repr__(self) -> str:
+        """String representation of polynomial vector."""
+        return f"PolynomialVector(length={self.length})"
     
     def norm_infinity(self) -> int:
         """

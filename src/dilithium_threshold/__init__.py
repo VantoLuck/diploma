@@ -14,14 +14,15 @@ __author__ = "Leonid Kartushin"
 __email__ = "leonid.kartushin@example.com"
 
 from .core.threshold import ThresholdSignature
-from .protocols.keygen import ThresholdKeyGen
-from .protocols.sign import ThresholdSigner
-from .protocols.verify import ThresholdVerifier
+from .core.dilithium import Dilithium
+from .core.shamir import AdaptedShamirSSS
+from .crypto.polynomials import Polynomial, PolynomialVector
 
 __all__ = [
     "ThresholdSignature",
-    "ThresholdKeyGen", 
-    "ThresholdSigner",
-    "ThresholdVerifier"
+    "Dilithium", 
+    "AdaptedShamirSSS",
+    "Polynomial",
+    "PolynomialVector"
 ]
 

@@ -39,6 +39,13 @@ class ShamirShare:
     
     def __repr__(self) -> str:
         return f"ShamirShare(id={self.participant_id}, length={self.vector_length})"
+    
+    def __eq__(self, other: 'ShamirShare') -> bool:
+        """Check equality of shares."""
+        if not isinstance(other, ShamirShare):
+            return False
+        return (self.participant_id == other.participant_id and 
+                self.share_vector == other.share_vector)
 
 
 class AdaptedShamirSSS:
@@ -242,7 +249,8 @@ class AdaptedShamirSSS:
         x_power = 1
         
         for coeff in poly_coeffs:
-            result = (result + coeff * x_power) % Q
+            # Use int64 to prevent overflow
+            result = (result + int(coeff) * x_power) % Q
             x_power = (x_power * x) % Q
         
         return result
@@ -278,7 +286,8 @@ class AdaptedShamirSSS:
             denominator_inv = self._mod_inverse(denominator, Q)
             
             # Add contribution of this basis polynomial
-            contribution = (yi * numerator * denominator_inv) % Q
+            # Use int64 to prevent overflow
+            contribution = (int(yi) * int(numerator) * int(denominator_inv)) % Q
             result = (result + contribution) % Q
         
         return result

@@ -10,6 +10,7 @@ import unittest
 import time
 import sys
 import os
+import numpy as np
 
 # Add the src directory to the path
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'src'))
