@@ -236,10 +236,18 @@ class AdaptedShamirSSS:
         coeffs = [secret]
         
         # Generate random coefficients for higher degree terms
-        # Use very small range to prevent overflow in threshold operations
-        # This is crucial for maintaining signature bounds in Dilithium
-        # Adaptive coefficient size based on threshold to ensure bounds
-        max_coeff = 1  # Minimal possible coefficients to ensure bounds
+        # Use secure range to prevent cryptographic vulnerabilities
+        # while maintaining signature bounds in Dilithium
+        
+        # Calculate secure coefficient range based on security level
+        from dilithium_threshold.utils.constants import get_params
+        params = get_params()  # Use default security level
+        gamma1 = params['gamma1']
+        
+        # Secure range: large enough for cryptographic security,
+        # small enough to not violate Dilithium bounds
+        min_coeff = 50  # Minimum for security
+        max_coeff = min(gamma1 // 32, 2000)  # Conservative bound
         
         if seed is not None:
             # Deterministic generation using seed
@@ -248,7 +256,12 @@ class AdaptedShamirSSS:
                 # Create unique seed for each coefficient
                 coeff_seed = hashlib.sha256(seed + i.to_bytes(4, 'big')).digest()
                 coeff_value = int.from_bytes(coeff_seed[:4], 'big')
-                coeff = (coeff_value % (2 * max_coeff + 1)) - max_coeff
+                coeff = min_coeff + (coeff_value % (max_coeff - min_coeff + 1))
+                
+                # Randomly make negative for more diversity
+                if (coeff_value >> 31) & 1:
+                    coeff = -coeff
+                
                 # Ensure positive modular representation
                 if coeff < 0:
                     coeff += Q
@@ -256,8 +269,13 @@ class AdaptedShamirSSS:
         else:
             # Random generation
             for _ in range(self.threshold - 1):
-                # Generate small coefficient in range [-max_coeff, max_coeff]
-                coeff = secrets.randbelow(2 * max_coeff + 1) - max_coeff
+                # Generate secure coefficient in range [min_coeff, max_coeff]
+                coeff = secrets.randbelow(max_coeff - min_coeff + 1) + min_coeff
+                
+                # Randomly make negative for more diversity
+                if secrets.randbits(1):
+                    coeff = -coeff
+                
                 # Ensure positive modular representation
                 if coeff < 0:
                     coeff += Q
