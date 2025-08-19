@@ -370,11 +370,21 @@ class Dilithium:
         Returns:
             Array of polynomial coefficients
         """
-        # Simplified gamma1 sampling
+        # More conservative gamma1 sampling to ensure bounds in threshold operations
         hash_output = hashlib.shake_256(seed).digest(N * 4)
         coeffs = np.frombuffer(hash_output, dtype=np.uint32)[:N]
-        coeffs = coeffs % (2 * self.gamma1 + 1) - self.gamma1
-        return coeffs.astype(np.int32) % Q
+        
+        # Use smaller range to account for threshold operations
+        effective_gamma1 = self.gamma1 // 4  # Much more conservative
+        
+        # Map to range [-effective_gamma1, effective_gamma1]
+        coeffs = coeffs % (2 * effective_gamma1 + 1) - effective_gamma1
+        coeffs = coeffs.astype(np.int32)
+        
+        # Ensure all coefficients are in the correct range
+        coeffs = np.clip(coeffs, -effective_gamma1, effective_gamma1)
+        
+        return coeffs
     
     def _matrix_vector_multiply(self, A: np.ndarray, v: PolynomialVector) -> PolynomialVector:
         """

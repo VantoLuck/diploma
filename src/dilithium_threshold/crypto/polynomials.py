@@ -41,8 +41,13 @@ class Polynomial:
         else:
             self.coeffs = coeffs.astype(np.int32)
             
-        # Reduce coefficients modulo Q
-        self.coeffs = self.coeffs % Q
+        # Proper modular reduction that preserves small values
+        # Only apply modular reduction if coefficients are outside reasonable range
+        self.coeffs = np.where(
+            np.abs(self.coeffs) > Q // 2,
+            self.coeffs % Q,
+            self.coeffs
+        )
     
     def _reduce_mod_xn_plus_1(self, coeffs: np.ndarray) -> np.ndarray:
         """

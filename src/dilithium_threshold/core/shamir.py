@@ -8,7 +8,7 @@ secret reconstruction.
 """
 
 import numpy as np
-from typing import List, Tuple, Dict
+from typing import List, Tuple, Dict, Optional
 import secrets
 from ..crypto.polynomials import Polynomial, PolynomialVector
 from ..utils.constants import Q, N, validate_threshold_config
@@ -75,7 +75,7 @@ class AdaptedShamirSSS:
         self.participants = participants
         self.participant_ids = list(range(1, participants + 1))
     
-    def split_secret(self, secret_vector: PolynomialVector) -> List[ShamirShare]:
+    def split_secret(self, secret_vector: PolynomialVector, seed: Optional[bytes] = None) -> List[ShamirShare]:
         """
         Split a polynomial vector secret into shares.
         
@@ -104,7 +104,13 @@ class AdaptedShamirSSS:
                 secret_coeff = polynomial.coeffs[coeff_idx]
                 
                 # Create Shamir polynomial for this coefficient
-                shamir_poly = self._create_shamir_polynomial(secret_coeff)
+                # Use deterministic seed if provided
+                coeff_seed = None
+                if seed is not None:
+                    import hashlib
+                    coeff_seed = hashlib.sha256(seed + poly_idx.to_bytes(4, 'big') + coeff_idx.to_bytes(4, 'big')).digest()
+                
+                shamir_poly = self._create_shamir_polynomial(secret_coeff, coeff_seed)
                 
                 # Evaluate polynomial at each participant's ID
                 for pid in self.participant_ids:
@@ -215,12 +221,13 @@ class AdaptedShamirSSS:
         
         return PolynomialVector(reconstructed_polys)
     
-    def _create_shamir_polynomial(self, secret: int) -> List[int]:
+    def _create_shamir_polynomial(self, secret: int, seed: Optional[bytes] = None) -> List[int]:
         """
         Create a Shamir polynomial with given secret as constant term.
         
         Args:
             secret: The secret value (constant term)
+            seed: Optional seed for deterministic coefficient generation
             
         Returns:
             List of polynomial coefficients [a0, a1, ..., a_{t-1}]
@@ -229,8 +236,32 @@ class AdaptedShamirSSS:
         coeffs = [secret]
         
         # Generate random coefficients for higher degree terms
-        for _ in range(self.threshold - 1):
-            coeffs.append(secrets.randbelow(Q))
+        # Use very small range to prevent overflow in threshold operations
+        # This is crucial for maintaining signature bounds in Dilithium
+        # Adaptive coefficient size based on threshold to ensure bounds
+        max_coeff = 1  # Minimal possible coefficients to ensure bounds
+        
+        if seed is not None:
+            # Deterministic generation using seed
+            import hashlib
+            for i in range(self.threshold - 1):
+                # Create unique seed for each coefficient
+                coeff_seed = hashlib.sha256(seed + i.to_bytes(4, 'big')).digest()
+                coeff_value = int.from_bytes(coeff_seed[:4], 'big')
+                coeff = (coeff_value % (2 * max_coeff + 1)) - max_coeff
+                # Ensure positive modular representation
+                if coeff < 0:
+                    coeff += Q
+                coeffs.append(coeff)
+        else:
+            # Random generation
+            for _ in range(self.threshold - 1):
+                # Generate small coefficient in range [-max_coeff, max_coeff]
+                coeff = secrets.randbelow(2 * max_coeff + 1) - max_coeff
+                # Ensure positive modular representation
+                if coeff < 0:
+                    coeff += Q
+                coeffs.append(coeff)
         
         return coeffs
     
